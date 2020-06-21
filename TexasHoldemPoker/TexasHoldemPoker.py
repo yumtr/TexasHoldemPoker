@@ -4,7 +4,9 @@ from winsound import *
 from Card import *
 from Player import *
 import random
+import copy
 
+RANK = ["Top", "One Pair", "Two Pair", "Triple", "Straight", "Flush", "Full House"]
 
 class TexasHoldemPoker:
     def __init__(self):
@@ -217,6 +219,92 @@ class TexasHoldemPoker:
         self.Again['state'] = 'disabled'
         self.Again['bg'] = 'gray'
 
+    # RANK의 인덱스 반환
+    def checkUserCard(self, user):
+        _cards = copy.deepcopy(user.cards)
+
+        maxValue = 0
+        for i in range(len(_cards)):
+            maxValue = max(_cards[i].value, maxValue)
+
+        _cards.extend(self.shared.cards)
+        cardCount = [0 for i in range(14)]
+        
+        for i in range(len(_cards)):
+            if _cards[i].value == 1:
+                _cards[i].value = 14 
+            print(_cards[i].value, end=' ')
+        print("")
+        hasTriple = False
+        hasPair = False
+        hasTwoPair = False
+        maxTriple = 0
+        maxPair = 0
+
+        # 같은 수 가진 카드 수 셈
+        for a in _cards:
+            cardCount[a.value-1] += 1
+        for a in cardCount:
+            print(a, end=' ')
+        print("")
+
+        for a in range(len(cardCount)):
+            if cardCount[a] >= 3:
+                maxTriple = max(maxTriple, a)
+                if hasTriple:
+                    hasPair = True
+                hasTriple = True
+            if cardCount[a] == 2:
+                maxPair = max(maxPair, a)
+                if hasPair:
+                    hasTwoPair = True
+                hasPair = True
+        
+        # 3 2
+        if hasPair and hasTriple:
+            return (6,max(maxTriple,maxPair))
+
+        # 플러쉬
+        sorted(_cards, key=lambda card: card.x)
+        cardShapeCount = [0 for i in range(4)]
+        maxCardShapeValue = [0 for i in range(4)]
+        for a in _cards:
+            cardShapeCount[a.x] += 1
+            maxCardShapeValue[a.x] = max(maxCardShapeValue[a.x], a.value)
+        maxSameShapeCount = max(cardShapeCount)
+        if(maxSameShapeCount >= 5):
+            for a in range(len(cardShapeCount)):
+                if cardShapeCount[a] == maxSameShapeCount:
+                    return (5, maxCardShapeValue[a])
+
+        # 스트레이트
+        _cards = list(set(_cards))
+        firstNum = _cards[0].value
+        sameCount = 0
+        maxCardNum = 0
+        for i in range(len(_cards)):
+            if firstNum ==_cards[i].value:
+                firstNum += 1
+                sameCount += 1
+                maxCardNum = max(maxCardNum, _cards[i].value)
+
+                if sameCount >= 5:
+                    return (4, maxCardNum)
+            else:
+                maxCardNum = max(maxCardNum, _cards[i].value)
+                firstNum = _cards[i].value+1
+                sameCount = 0
+        
+        if hasTriple:
+            return (3, maxTriple)
+        if hasTwoPair:
+            return (2, maxPair)
+        if hasPair:
+            return (1, maxPair)
+
+        
+        return (0,maxValue)
+
     def checkWinner(self):
         # 뒤집힌 카드를 다시 그린다.
         for i in range(2):
@@ -224,26 +312,39 @@ class TexasHoldemPoker:
             self.LcardsDealer[i].configure(image=p)  # 이미지 레퍼런스 변경
             self.LcardsDealer[i].image = p  # 파이썬은 라벨 이미지 레퍼런스를 갖고 있어야 이미지가 보임
 
-        self.LplayerRank.configure(text="플레이어 족보")
-        self.LdealerRank.configure(text="딜러 족보")
+        playerResult = self.checkUserCard(self.player)
+        dealerResult = self.checkUserCard(self.dealer)
+        p = playerResult[1]
+        d = dealerResult[1]
+        if p == 14:
+            p = 1
+        if d == 14:
+            d = 1
 
-        if self.player.value() > 21:
-            self.Lstatus.configure(text="Player Busts")
-            #PlaySound('sounds/wrong.wav', SND_FILENAME)
-        elif self.dealer.value() > 21:
-            self.Lstatus.configure(text="Dealer Busts")
-            self.playerMoney += self.betMoney * 2
-            #PlaySound('sounds/win.wav', SND_FILENAME)
-        elif self.dealer.value() == self.player.value():
-            self.Lstatus.configure(text="Push", fg="red")
+        self.LplayerRank.configure(text=(RANK[playerResult[0]]+str(p)))
+        self.LdealerRank.configure(text=(RANK[dealerResult[0]]+str(d)))
+
+        print(playerResult[0]," ",playerResult[1]," ",dealerResult[0]," ",dealerResult[1])
+        if playerResult[0] > dealerResult[0]:
+            self.Lstatus.configure(text="Win")
             self.playerMoney += self.betMoney
-        elif self.dealer.value() < self.player.value():
-            self.Lstatus.configure(text="Win", fg="red")
-            self.playerMoney += self.betMoney * 2
+            #PlaySound('sounds/wrong.wav', SND_FILENAME)
+        elif playerResult[0] < dealerResult[0]:
+            self.Lstatus.configure(text="Lose")
             #PlaySound('sounds/win.wav', SND_FILENAME)
         else:
-            self.Lstatus.configure(text="Lose", fg="red")
-            #PlaySound('sounds/wrong.wav', SND_FILENAME)
+            
+            if playerResult[1] == 1:
+                p= 14
+                print("player have 1")
+            if dealerResult[1] == 1:
+                d= 14
+                print("dealer have 1")
+            if p > d:
+                self.Lstatus.configure(text="Win")
+                self.playerMoney += self.betMoney
+            else:
+                self.Lstatus.configure(text="Lose")
 
         self.Check['state'] = 'disabled'
         self.Check['bg'] = 'gray'

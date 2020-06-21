@@ -22,3 +22,12 @@ class Card:
 
     def filename(self):  # 카드 이미지 파일 이름
         return self.getsuit() + str(self.value) + ".png"
+
+    def __eq__(self, rhs):
+        return (self.__class__ == rhs.__class__ ) and (self.value == rhs.value)
+
+    def __ne__(self, rhs):
+        return not __eq__(rhs)
+
+    def __hash__(self):
+        return hash(self.value)
